@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html lang="ko"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Inspector Desk (공개용)</title>
+<style>
+:root{--bg:#f6f7f9;--card:#fff;--tx:#1b1f24;--mut:#6a737d;--bd:#d9dde3;--ac:#1f5fbf;--ok:#1a7f37;--ng:#c62828;--na:#8a8f98;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+@media(prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#14171b;--card:#1d2127;--tx:#e8eaed;--mut:#9aa3ad;--bd:#343a42;--ac:#6ea8ff;--ok:#4cc26a;--ng:#ff7b72;--na:#7b838d;color-scheme:dark}}
+*{box-sizing:border-box}html{scroll-padding-top:env(safe-area-inset-top,0px)}
+body{margin:0;background:var(--bg);color:var(--tx);font:15px/1.5 -apple-system,"Apple SD Gothic Neo","Noto Sans KR",sans-serif}
+main{max-width:760px;margin:0 auto;padding:12px}
+h1{font-size:18px;margin:4px 0 2px}.sub{color:var(--mut);font-size:12px;margin-bottom:10px}
+nav{display:flex;gap:6px;overflow-x:auto;margin-bottom:10px}
+nav button{flex:none;border:1px solid var(--bd);background:var(--card);color:var(--tx);padding:8px 12px;border-radius:20px;font-size:14px}
+nav button.on{background:var(--ac);color:#fff;border-color:var(--ac)}
+.card{background:var(--card);border:1px solid var(--bd);border-radius:12px;padding:12px;margin-bottom:10px}
+.card h3{margin:0 0 6px;font-size:15px}
+input,select,textarea{width:100%;padding:9px;border:1px solid var(--bd);border-radius:8px;background:var(--bg);color:var(--tx);font:inherit}
+label{font-size:12px;color:var(--mut);display:block;margin-top:8px}
+.row{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.item{border-top:1px solid var(--bd);padding:8px 0}
+.item:first-of-type{border-top:0}
+.ref{font-size:12px;color:var(--ac)}
+.q{margin:2px 0 6px}
+.seg{display:flex;gap:6px}
+.seg button{flex:1;padding:7px;border:1px solid var(--bd);border-radius:8px;background:var(--bg);color:var(--tx)}
+.seg button.p.on{background:var(--ok);color:#fff;border-color:var(--ok)}
+.seg button.f.on{background:var(--ng);color:#fff;border-color:var(--ng)}
+.seg button.n.on{background:var(--na);color:#fff;border-color:var(--na)}
+.item input.note{margin-top:6px;font-size:13px;padding:6px}
+.res{font-size:18px;font-weight:700;color:var(--ac)}
+.tag{font-size:11px;color:var(--mut)}
+.btn{background:var(--ac);color:#fff;border:0;padding:10px 14px;border-radius:8px;font-size:14px}
+.btn.g{background:var(--card);color:var(--tx);border:1px solid var(--bd)}
+.warn{font-size:12px;color:var(--mut);border-left:3px solid var(--ac);padding-left:8px;margin:8px 0}
+.sum{display:flex;gap:12px;font-size:13px;margin:6px 0}
+.b{display:inline-block;font-size:11px;font-weight:700;padding:1px 7px;border-radius:10px;color:#fff;margin-right:6px}.b.PASS{background:var(--ok)}.b.FAIL{background:var(--ng)}.b.WARN{background:#b7791f}.b.NA,.b.UNREADABLE{background:var(--na)}.ban{font-size:20px;font-weight:800;padding:12px;border-radius:12px;color:#fff;text-align:center;margin-bottom:10px}.ban.PASS{background:var(--ok)}.ban.FAIL{background:var(--ng)}.ban.HOLD{background:#b7791f}.fl{display:flex;justify-content:space-between;padding:3px 0;font-size:13px}
+@media print{nav,.noprint,.seg button:not(.on){display:none}body{background:#fff;color:#000}.card{break-inside:avoid}}
+</style></head><body><main>
+<h1>Inspector Desk</h1>
+<div class="sub">ASME · ASTM · ISO · PED 검사/서류검토 도구 — 참고용, 반드시 적용 판(edition) 원문으로 최종 확인</div>
+<nav id="nav"></nav>
+<div id="view"></div>
+<div class="warn">조항 번호는 검토 포인트 안내용입니다. 원문은 저작권 보호 대상이므로 수록하지 않았으며, 계약/적용 판 및 Addenda를 확인하세요.</div>
+</main>
+<script>
+const CL={
+doc:{t:"서류검토",g:[
+{h:"자재 (MTR / 인증서)",i:[
+["EN 10204 인증서 유형(3.1/3.2) 이 주문/코드 요구와 일치","EN 10204; PED Annex I 4.3"],
+["Heat/Lot 번호가 자재·도면·마킹과 추적 가능","ASME VIII-1 UG-77"],
+["규격/Grade(SA-/ASTM/EN)가 도면·설계 사양과 일치","ASME II-A/B; ASTM A370/A751 시험법"],
+["화학성분·기계적 성질이 규격 범위 이내 (열처리 조건 포함)","해당 ASME II 규격 / ASTM"],
+["충격시험 요구 여부 및 결과 (MDMT 기준)","ASME VIII-1 UG-20, UCS-66, UG-84"],
+["PED: EAM / PMA / Particular Material Appraisal 근거 확인","PED 2014/68/EU Annex I 4.2"]]},
+{h:"용접 (WPS/PQR/WPQ)",i:[
+["WPS가 PQR로 뒷받침되며 필수변수 범위 이내","ASME IX QW-200, QW-250 계열"],
+["PQR 시험(인장·굽힘·충격) 결과 합격 및 서명","ASME IX QW-150/160/170"],
+["용접사 자격(WPQ) 유효, 범위·연속성(6개월 규칙) 확인","ASME IX QW-300, QW-322"],
+["ISO 적용 시: WPQR/WPS/용접사 인증","ISO 15614-1, ISO 15609-1, ISO 9606-1"],
+["PED: 용접 절차·인력이 승인(Notified Body/인정기관) 받음","PED Annex I 3.1.2, 3.1.3"]]},
+{h:"NDE",i:[
+["NDE 절차서가 코드 요구(ASME V)와 일치","ASME V Art.1; 4(UT) 6(PT) 7(MT) 2(RT)"],
+["NDE 범위(RT 100%/spot 등)가 설계·조인트효율과 일치","ASME VIII-1 UW-11, UW-12"],
+["RT 필름/보고서 합격기준 및 판독 확인","ASME VIII-1 UW-51/52"],
+["NDE 인력 자격(SNT-TC-1A 또는 ISO 9712) 유효","SNT-TC-1A; ISO 9712"],
+["PED: NDT 인력 승인 (Cat. III/IV 등)","PED Annex I 3.1.3"]]},
+{h:"시험·최종문서",i:[
+["수압/공압시험 압력·유지시간·기록 확인","ASME VIII-1 UG-99/UG-100; PED Annex I 7.4"],
+["PWHT 기록(온도·시간·승온/냉각속도) 확인","ASME VIII-1 UCS-56"],
+["명판(Nameplate)/스탬프 내용이 설계와 일치","ASME VIII-1 UG-116"],
+["Manufacturer's Data Report (U-1/U-1A) 및 AI 서명","ASME VIII-1 UG-120"],
+["PED: Declaration of Conformity, CE 마킹, 모듈(A/B/D/F/G/H) 적합","PED Art.14, 15, 18; Annex III"],
+["PED: 위험 분류(Category) 및 유체 그룹 적합","PED Art.13 / Annex II"]]}]},
+fld:{t:"현장검사",g:[
+{h:"육안/치수",i:[
+["Fit-up: 갭·미스얼라인먼트·개선각 도면/WPS 일치","ISO 5817; ASME VIII-1 UW-33"],
+["용접 육안검사: 언더컷·오버랩·크랙·표면기공","ASME V Art.9; ISO 17637; ISO 5817"],
+["치수·두께 측정 (최소두께, 원주/진원도)","ASME VIII-1 UG-79 / UG-80"],
+["자재 마킹 이식·추적성 유지","ASME VIII-1 UG-77"],
+["노즐·보강판·개구부 위치·치수","ASME VIII-1 UG-37 UG-41"]]},
+{h:"공정 중",i:[
+["예열/패스간 온도 관리","WPS; ASME VIII-1 UCS-56"],
+["용접재료 보관·건조·관리(오븐)","AWS/ASME II-C; WPS"],
+["PWHT 열전대 위치·기록 차트","ASME VIII-1 UCS-56"],
+["내부 청결·이물질 확인 (Closing 전)","Site/Client 절차"]]},
+{h:"시험",i:[
+["시험 압력 게이지(교정·범위 1.5~4배) 확인","ASME VIII-1 UG-102"],
+["수압시험 중 누설·변형 확인, 유지 후 검사압 하향 점검","UG-99"],
+["안전장치(PSV) 세트압·인증·Nameplate","ASME VIII-1 UG-125~UG-136"]]}]}
+};
+const T=["doc","fld","calc","rpt"]; let tab="doc", S={};
+try{S=JSON.parse(localStorage.getItem("insp")||"{}")}catch(e){}
+const save=()=>{try{localStorage.setItem("insp",JSON.stringify(S))}catch(e){}};
+const $=s=>document.querySelector(s);
+const names={doc:"서류검토",fld:"현장검사",calc:"계산기",rpt:"결과보고"};
+function nav(){$("#nav").innerHTML=T.map(k=>`<button class="${k==tab?"on":""}" onclick="tab='${k}';render()">${names[k]}</button>`).join("")}
+function esc(s){return String(s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]))}
+function checklist(k){
+ const c=CL[k];let out=`<div class="card noprint"><input id="q" placeholder="항목/조항 검색 (예: UG-99, PWHT, EN 10204)" oninput="filter()"></div>`;
+ c.g.forEach((g,gi)=>{out+=`<div class="card grp"><h3>${g.h}</h3>`+g.i.map((it,ii)=>{
+  const id=k+gi+"_"+ii,v=(S[id]||{}).v||"",n=(S[id]||{}).n||"";
+  return `<div class="item" data-t="${esc((it[0]+it[1]).toLowerCase())}"><div class="q">${it[0]}</div><div class="ref">${it[1]}</div>
+  <div class="seg"><button class="p ${v=="P"?"on":""}" onclick="set('${id}','P')">합격</button><button class="f ${v=="F"?"on":""}" onclick="set('${id}','F')">부적합</button><button class="n ${v=="N"?"on":""}" onclick="set('${id}','N')">해당없음</button></div>
+  <input class="note" placeholder="비고 / 문서번호" value="${esc(n)}" onchange="note('${id}',this.value)"></div>`}).join("")+`</div>`});
+ return out}
+function set(id,v){S[id]=S[id]||{};S[id].v=S[id].v==v?"":v;save();render()}
+function note(id,v){S[id]=S[id]||{};S[id].n=v;save()}
+function filter(){const q=$("#q").value.toLowerCase();document.querySelectorAll(".item").forEach(e=>e.style.display=e.dataset.t.includes(q)?"":"none")}
+function calc(){return `
+<div class="card"><h3>수압시험압력 – ASME VIII-1 (UG-99(b))</h3>
+<div class="row"><div><label>MAWP</label><input id="a1" type="number" step="any" oninput="c1()"></div><div><label>LSR (시험온도/설계온도 허용응력비 최저값)</label><input id="a2" type="number" step="any" value="1" oninput="c1()"></div></div>
+<label>계수 (2007 이후 판 1.3 / 이전 1.5)</label><select id="a3" onchange="c1()"><option>1.3</option><option>1.5</option></select>
+<p>시험압력 = <span class="res" id="r1">–</span> <span class="tag">(MAWP 단위와 동일)</span></p></div>
+<div class="card"><h3>공압시험압력 – ASME VIII-1 (UG-100)</h3><p class="tag">1.1 × MAWP × LSR (MAWP, LSR 위 입력값 사용)</p><p>시험압력 = <span class="res" id="r1b">–</span></p></div>
+<div class="card"><h3>수압시험압력 – PED Annex I 7.4</h3>
+<div class="row"><div><label>PS (최대허용압력)</label><input id="b1" type="number" step="any" oninput="c2()"></div><div><label>fa/ft (시험·설계 온도 허용응력비)</label><input id="b2" type="number" step="any" value="1" oninput="c2()"></div></div>
+<p>시험압력 = max(1.25·PS·fa/ft, 1.43·PS) = <span class="res" id="r2">–</span></p></div>
+<div class="card"><h3>원통 쉘 최소두께 – ASME VIII-1 UG-27(c)(1)</h3>
+<div class="row"><div><label>P 설계압력 (MPa)</label><input id="c1" type="number" step="any" oninput="c3()"></div><div><label>R 내반경 (mm)</label><input id="c2" type="number" step="any" oninput="c3()"></div>
+<div><label>S 허용응력 (MPa)</label><input id="c3" type="number" step="any" oninput="c3()"></div><div><label>E 조인트효율</label><input id="c4" type="number" step="any" value="1" oninput="c3()"></div></div>
+<label>부식여유 CA (mm)</label><input id="c5" type="number" step="any" value="0" oninput="c3()">
+<p>t = P·R / (S·E − 0.6P) = <span class="res" id="r3">–</span> mm</p><p>t + CA = <span class="res" id="r3b">–</span> mm</p><p class="tag">조건: P ≤ 0.385·S·E (원주방향 응력, 얇은 쉘)</p></div>
+<div class="card"><h3>2:1 타원형 헤드 – UG-32(d)</h3><p class="tag">위 입력값 사용, D = 내경 = 2R</p>
+<p>t = P·D / (2·S·E − 0.2P) = <span class="res" id="r4">–</span> mm</p></div>`}
+const n=id=>parseFloat(document.getElementById(id)?.value);
+const f=(x,d=3)=>isFinite(x)?x.toFixed(d):"–";
+function c1(){const m=n("a1"),l=n("a2"),k=parseFloat($("#a3").value);$("#r1").textContent=f(k*m*l);$("#r1b").textContent=f(1.1*m*l)}
+function c2(){const p=n("b1"),r=n("b2");$("#r2").textContent=f(Math.max(1.25*p*r,1.43*p))}
+function c3(){const P=n("c1"),R=n("c2"),S=n("c3"),E=n("c4"),CA=n("c5")||0;
+ if(P>0.385*S*E){$("#r3").textContent="조건 초과 (Appendix 1-2)";$("#r3b").textContent="–"}
+ else{const t=P*R/(S*E-0.6*P);$("#r3").textContent=f(t);$("#r3b").textContent=f(t+CA)}
+ const D=2*R;$("#r4").textContent=f(P*D/(2*S*E-0.2*P))}
+function rpt(){
+ let tot={P:0,F:0,N:0,U:0},fails=[];
+ ["doc","fld"].forEach(k=>CL[k].g.forEach((g,gi)=>g.i.forEach((it,ii)=>{const s=S[k+gi+"_"+ii]||{},v=s.v||"U";tot[v]++;if(v=="F")fails.push(`<div class="item"><b>${it[0]}</b><div class="ref">${it[1]}</div><div class="tag">${esc(s.n||"")}</div></div>`)})));
+ const m=S.meta||{};
+ return `<div class="card"><h3>검사 정보</h3>
+ <label>프로젝트 / 기기번호</label><input value="${esc(m.p||"")}" onchange="meta('p',this.value)">
+ <div class="row"><div><label>적용 코드/판</label><input value="${esc(m.c||"")}" onchange="meta('c',this.value)" placeholder="예: ASME VIII-1 2023"></div><div><label>검사원 / 날짜</label><input value="${esc(m.i||"")}" onchange="meta('i',this.value)"></div></div></div>
+ <div class="card"><h3>요약</h3><div class="sum"><span style="color:var(--ok)">합격 ${tot.P}</span><span style="color:var(--ng)">부적합 ${tot.F}</span><span>해당없음 ${tot.N}</span><span>미확인 ${tot.U}</span></div></div>
+ <div class="card"><h3>부적합 항목 (NCR 대상)</h3>${fails.join("")||"<span class='tag'>없음</span>"}</div>
+ <div class="noprint"><button class="btn" onclick="print()">인쇄 / PDF 저장</button> <button class="btn g" onclick="if(confirm('모든 입력을 초기화할까요?')){S={};save();render()}">초기화</button></div>`}
+function meta(k,v){S.meta=S.meta||{};S.meta[k]=v;save()}
+function render(){nav();$("#view").innerHTML=tab=="doc"||tab=="fld"?checklist(tab):tab=="calc"?calc():rpt();window.scrollTo(0,0)}
+render();
+</script></body></html>
