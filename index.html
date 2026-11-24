@@ -38,10 +38,32 @@ label{font-size:12px;color:var(--mut);display:block;margin-top:8px}
 </style></head><body><main>
 <h1>Inspector Desk</h1>
 <div class="sub">ASME · ASTM · ISO · PED 검사/서류검토 도구 — 참고용, 반드시 적용 판(edition) 원문으로 최종 확인</div>
+
+<section class="card noprint" id="cloudPanel">
+  <h3>클라우드 로그인 / 검사기록</h3>
+  <div id="authArea">
+    <div class="row"><div><label>이메일</label><input id="authEmail" type="email" autocomplete="username" placeholder="관리자 이메일"></div><div><label>비밀번호</label><input id="authPassword" type="password" autocomplete="current-password" placeholder="Supabase 비밀번호"></div></div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:9px"><button class="btn" onclick="cloudLogin()">로그인</button><span class="tag" id="authMessage">로그인 후 클라우드 저장 및 파일 첨부를 사용할 수 있습니다.</span></div>
+  </div>
+  <div id="signedArea" hidden>
+    <div class="tag" id="userInfo"></div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:9px">
+      <button class="btn" onclick="cloudSave()">검사기록 클라우드 저장</button>
+      <button class="btn g" onclick="cloudLoadList()">저장된 기록 불러오기</button>
+      <button class="btn g" onclick="cloudLogout()">로그아웃</button>
+    </div>
+    <label>사진 / PDF 파일 첨부 (먼저 검사기록을 클라우드 저장하세요)</label>
+    <input id="cloudFiles" type="file" accept="image/*,application/pdf" multiple>
+    <button class="btn g" style="margin-top:8px" onclick="cloudUploadFiles()">선택한 파일 업로드</button>
+    <div id="cloudFileList" class="tag" style="margin-top:8px"></div>
+    <div id="cloudRecords" style="margin-top:10px"></div>
+  </div>
+</section>
 <nav id="nav"></nav>
 <div id="view"></div>
 <div class="warn">조항 번호는 검토 포인트 안내용입니다. 원문은 저작권 보호 대상이므로 수록하지 않았으며, 계약/적용 판 및 Addenda를 확인하세요.</div>
 </main>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script>
 const CL={
 doc:{t:"서류검토",g:[
@@ -142,5 +164,80 @@ function rpt(){
  <div class="noprint"><button class="btn" onclick="print()">인쇄 / PDF 저장</button> <button class="btn g" onclick="if(confirm('모든 입력을 초기화할까요?')){S={};save();render()}">초기화</button></div>`}
 function meta(k,v){S.meta=S.meta||{};S.meta[k]=v;save()}
 function render(){nav();$("#view").innerHTML=tab=="doc"||tab=="fld"?checklist(tab):tab=="calc"?calc():rpt();window.scrollTo(0,0)}
+
+// Supabase cloud connection. The publishable key is designed for browser use; RLS protects data.
+const SUPABASE_URL = "https://llvrefrcvzicypecabav.supabase.co";
+const SUPABASE_PUBLISHABLE_KEY = "sb_publishable_RolEHAoPvXtNYg2D8GdCqA_7QNUlb76";
+const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY);
+let cloudUser = null, cloudRole = null, cloudInspectionId = null;
+const cloudMsg = (t, bad=false) => { const e=document.getElementById('authMessage'); if(e){e.textContent=t;e.style.color=bad?'#c62828':'var(--mut)';} };
+async function cloudLogin(){
+ const email=document.getElementById('authEmail').value.trim(), password=document.getElementById('authPassword').value;
+ if(!email||!password){cloudMsg('이메일과 비밀번호를 입력하세요.',true);return;}
+ cloudMsg('로그인 확인 중...');
+ const {data,error}=await sb.auth.signInWithPassword({email,password});
+ if(error){cloudMsg('로그인 실패: '+error.message,true);return;}
+ await cloudRefreshUser();
+}
+async function cloudRefreshUser(){
+ const {data:{user}}=await sb.auth.getUser(); cloudUser=user;
+ if(!user){document.getElementById('authArea').hidden=false;document.getElementById('signedArea').hidden=true;return;}
+ const {data:profile,error}=await sb.from('user_profiles').select('role,email').eq('user_id',user.id).maybeSingle();
+ if(error){cloudMsg('프로필 확인 오류: '+error.message,true);return;}
+ cloudRole=profile?.role||'inspector';
+ document.getElementById('authArea').hidden=true;document.getElementById('signedArea').hidden=false;
+ document.getElementById('userInfo').textContent=(profile?.email||user.email)+' · 권한: '+cloudRole+(cloudInspectionId?' · 현재 기록 ID: '+cloudInspectionId:'');
+ cloudMsg('로그인되었습니다.');
+ await cloudLoadList();
+}
+async function cloudLogout(){await sb.auth.signOut();cloudUser=null;cloudRole=null;cloudInspectionId=null;document.getElementById('cloudRecords').innerHTML='';document.getElementById('cloudFileList').innerHTML='';await cloudRefreshUser();cloudMsg('로그아웃되었습니다.');}
+function cloudPayload(){const m=S.meta||{};return {project_name:m.p||'미입력 프로젝트',equipment_no:'',inspection_title:'Inspector Desk 검사기록',inspection_date:new Date().toISOString().slice(0,10),status:'in_progress',notes:'Inspector Desk에서 저장한 검사기록',data:S};}
+async function cloudSave(){
+ if(!cloudUser){cloudMsg('먼저 로그인하세요.',true);return;}
+ cloudMsg('클라우드에 저장 중...');const payload=cloudPayload();let result;
+ if(cloudInspectionId){result=await sb.from('inspections').update({...payload,updated_at:new Date().toISOString()}).eq('id',cloudInspectionId).select('id').single();}
+ else{result=await sb.from('inspections').insert({...payload,created_by:cloudUser.id}).select('id').single();}
+ if(result.error){cloudMsg('저장 실패: '+result.error.message,true);return;}
+ cloudInspectionId=result.data.id;document.getElementById('userInfo').textContent=(cloudUser.email||'')+' · 권한: '+cloudRole+' · 현재 기록 ID: '+cloudInspectionId;
+ cloudMsg('검사기록이 클라우드에 저장되었습니다.');await cloudLoadList();
+}
+async function cloudLoadList(){
+ if(!cloudUser)return;const box=document.getElementById('cloudRecords');box.textContent='기록 목록 불러오는 중...';
+ const {data,error}=await sb.from('inspections').select('id,project_name,equipment_no,inspection_date,updated_at').order('updated_at',{ascending:false}).limit(50);
+ if(error){box.textContent='기록 목록 오류: '+error.message;return;}
+ if(!data.length){box.textContent='저장된 검사기록이 없습니다.';return;}
+ box.innerHTML='<b>저장된 검사기록 (최대 50건)</b>'+data.map(r=>`<div class="item"><div><b>${esc(r.project_name||'프로젝트 미입력')}</b> <span class="tag">${esc(r.inspection_date||'')}</span></div><div class="tag">${esc(r.id)}</div><button class="btn g" style="margin-top:5px" onclick="cloudLoadOne('${r.id}')">이 기록 열기</button></div>`).join('');
+}
+async function cloudLoadOne(id){
+ const {data,error}=await sb.from('inspections').select('id,data').eq('id',id).single();
+ if(error){cloudMsg('기록 불러오기 실패: '+error.message,true);return;}
+ if(!data.data||typeof data.data!=='object'){cloudMsg('이 기록에는 저장된 검사 데이터가 없습니다.',true);return;}
+ S=data.data;save();cloudInspectionId=data.id;render();await cloudRefreshUser();await cloudListFiles();cloudMsg('검사기록을 불러왔습니다.');
+}
+async function cloudUploadFiles(){
+ if(!cloudUser){cloudMsg('먼저 로그인하세요.',true);return;}
+ if(!cloudInspectionId){cloudMsg('먼저 [검사기록 클라우드 저장]을 실행하세요.',true);return;}
+ const input=document.getElementById('cloudFiles'),files=[...(input.files||[])];
+ if(!files.length){cloudMsg('첨부할 사진 또는 PDF 파일을 선택하세요.',true);return;}
+ for(const file of files){
+  const safeName=file.name.replace(/[^\p{L}\p{N}._-]+/gu,'_');const path=cloudInspectionId+'/'+Date.now()+'_'+safeName;
+  const up=await sb.storage.from('inspection-files').upload(path,file,{upsert:false});
+  if(up.error){cloudMsg('파일 업로드 실패 ('+file.name+'): '+up.error.message,true);return;}
+  const ins=await sb.from('inspection_files').insert({inspection_id:cloudInspectionId,file_name:file.name,storage_path:path});
+  if(ins.error){cloudMsg('파일 정보 저장 실패: '+ins.error.message,true);return;}
+ }
+ input.value='';cloudMsg('파일 업로드가 완료되었습니다.');await cloudListFiles();
+}
+async function cloudListFiles(){
+ if(!cloudInspectionId)return;const box=document.getElementById('cloudFileList');
+ const {data,error}=await sb.from('inspection_files').select('id,file_name,storage_path,created_at').eq('inspection_id',cloudInspectionId).order('created_at',{ascending:false});
+ if(error){box.textContent='첨부파일 목록 오류: '+error.message;return;}
+ if(!data.length){box.textContent='첨부된 파일이 없습니다.';return;}
+ box.innerHTML='<b>첨부파일</b>'+data.map(f=>`<div class="item">${esc(f.file_name)} <button class="btn g" onclick="cloudDownload('${encodeURIComponent(f.storage_path)}')">열기 / 다운로드</button></div>`).join('');
+}
+async function cloudDownload(encodedPath){const path=decodeURIComponent(encodedPath);const {data,error}=await sb.storage.from('inspection-files').createSignedUrl(path,300);if(error){cloudMsg('파일 열기 실패: '+error.message,true);return;}window.open(data.signedUrl,'_blank','noopener');}
+sb.auth.onAuthStateChange((_event,session)=>{if(session?.user){setTimeout(()=>cloudRefreshUser(),0);}else{cloudUser=null;cloudRole=null;document.getElementById('authArea').hidden=false;document.getElementById('signedArea').hidden=true;}});
+cloudRefreshUser();
+
 render();
 </script></body></html>
